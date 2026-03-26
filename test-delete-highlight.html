@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试删除高亮功能</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+
+    #editor {
+      border: 1px solid #ddd;
+      padding: 15px;
+      min-height: 200px;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .comment-highlight {
+      cursor: pointer;
+      padding: 2px 0;
+      transition: all 0.2s;
+    }
+
+    .comment-highlight:hover {
+      filter: brightness(0.85) !important;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 8px 16px;
+      margin-right: 10px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .delete-btn {
+      background: #dc3545;
+    }
+
+    .delete-btn:hover {
+      background: #c82333;
+    }
+
+    .info {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+
+    .comment-list {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+    }
+
+    .comment-item {
+      background: white;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>测试删除高亮功能</h1>
+
+  <div class="info">
+    <h3>测试步骤：</h3>
+    <ol>
+      <li>点击"添加评论1"按钮，会给"测试文本"添加黄色高亮</li>
+      <li>点击"添加评论2"按钮，会给"测试文本"添加蓝色高亮（叠加）</li>
+      <li>点击"添加评论3"按钮，会给"测试文本"添加绿色高亮（叠加）</li>
+      <li>点击"删除评论2"按钮，观察蓝色高亮是否被移除，黄色和绿色是否保留</li>
+    </ol>
+  </div>
+
+  <div class="controls">
+    <button onclick="addComment1()">添加评论1（黄色）</button>
+    <button onclick="addComment2()">添加评论2（蓝色）</button>
+    <button onclick="addComment3()">添加评论3（绿色）</button>
+  </div>
+
+  <div class="controls">
+    <button class="delete-btn" onclick="deleteComment('comment-1')">删除评论1</button>
+    <button class="delete-btn" onclick="deleteComment('comment-2')">删除评论2</button>
+    <button class="delete-btn" onclick="deleteComment('comment-3')">删除评论3</button>
+  </div>
+
+  <div id="editor" contenteditable="true">
+    这是一段示例文本。请注意这里的<span id="target">测试文本</span>，我们将对它进行多次评论。
+  </div>
+
+  <div class="comment-list">
+    <h3>评论列表</h3>
+    <div id="comments"></div>
+  </div>
+
+  <script>
+    const comments = [];
+
+    function updateCommentList() {
+      const container = document.getElementById('comments');
+      if (comments.length === 0) {
+        container.innerHTML = '<p>暂无评论</p>';
+        return;
+      }
+
+      container.innerHTML = comments.map(c => `
+        <div class="comment-item">
+          <strong>${c.id}</strong>: ${c.content}
+          <button class="delete-btn" onclick="deleteComment('${c.id}')">删除</button>
+        </div>
+      `).join('');
+    }
+
+    function highlightText(commentId, color) {
+      const target = document.getElementById('target');
+      if (!target) {
+        alert('找不到目标文本');
+        return;
+      }
+
+      // 创建一个 Range 包含目标文本
+      const range = document.createRange();
+      range.selectNodeContents(target);
+
+      // 创建高亮 span
+      const span = document.createElement('span');
+      span.className = 'comment-highlight';
+      span.setAttribute('data-comment-id', commentId);
+      span.style.backgroundColor = color;
+      span.style.borderBottom = `2px solid ${color}`;
+      span.style.filter = 'brightness(0.9)';
+
+      try {
+        // 尝试直接包裹
+        range.surroundContents(span);
+      } catch (e) {
+        // 如果失败，使用 extractContents
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+      }
+
+      console.log(`添加了评论 ${commentId}，颜色：${color}`);
+      console.log('当前 DOM 结构：', document.getElementById('editor').innerHTML);
+    }
+
+    function addComment1() {
+      const comment = {
+        id: 'comment-1',
+        content: '这是第一个评论',
+        color: '#fff3cd'
+      };
+      comments.push(comment);
+      highlightText(comment.id, comment.color);
+      updateCommentList();
+    }
+
+    function addComment2() {
+      const comment = {
+        id: 'comment-2',
+        content: '这是第二个评论',
+        color: '#d1ecf1'
+      };
+      comments.push(comment);
+      highlightText(comment.id, comment.color);
+      updateCommentList();
+    }
+
+    function addComment3() {
+      const comment = {
+        id: 'comment-3',
+        content: '这是第三个评论',
+        color: '#d4edda'
+      };
+      comments.push(comment);
+      highlightText(comment.id, comment.color);
+      updateCommentList();
+    }
+
+    function deleteComment(commentId) {
+      console.log(`准备删除评论：${commentId}`);
+
+      // 从评论列表中删除
+      const index = comments.findIndex(c => c.id === commentId);
+      if (index !== -1) {
+        comments.splice(index, 1);
+      }
+
+      // 删除高亮
+      const editor = document.getElementById('editor');
+      const highlightElements = Array.from(
+        editor.querySelectorAll(`[data-comment-id="${commentId}"]`)
+      );
+
+      console.log(`找到 ${highlightElements.length} 个匹配的高亮元素`);
+
+      highlightElements.forEach((highlightElement, idx) => {
+        console.log(`处理第 ${idx + 1} 个元素:`, highlightElement);
+
+        const parent = highlightElement.parentNode;
+        if (!parent) {
+          console.log('没有父节点，跳过');
+          return;
+        }
+
+        // 创建文档片段，保存子节点
+        const fragment = document.createDocumentFragment();
+        while (highlightElement.firstChild) {
+          fragment.appendChild(highlightElement.firstChild);
+        }
+
+        // 用 fragment 替换高亮元素
+        parent.replaceChild(fragment, highlightElement);
+        console.log(`已删除元素，当前父节点内容:`, parent.innerHTML);
+      });
+
+      // 合并相邻的文本节点
+      editor.normalize();
+
+      console.log('删除后的 DOM 结构：', editor.innerHTML);
+      updateCommentList();
+    }
+
+    updateCommentList();
+  </script>
+</body>
+</html>

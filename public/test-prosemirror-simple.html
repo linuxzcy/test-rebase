@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ProseMirror Decoration 删除测试</title>
+  <script type="module">
+    import { EditorState, Plugin, PluginKey } from 'https://esm.sh/prosemirror-state@1.4.4'
+    import { EditorView, Decoration, DecorationSet } from 'https://esm.sh/prosemirror-view@1.41.5'
+    import { Schema } from 'https://esm.sh/prosemirror-model@1.23.0'
+    import { schema as basicSchema } from 'https://esm.sh/prosemirror-schema-basic@1.2.3'
+
+    const commentPluginKey = new PluginKey('comments')
+
+    const createCommentPlugin = () => {
+      return new Plugin({
+        key: commentPluginKey,
+        state: {
+          init() {
+            console.log('Plugin 初始化')
+            return DecorationSet.empty
+          },
+          apply(tr, set) {
+            console.log('\n=== Plugin apply 开始 ===')
+            console.log('Transaction docChanged:', tr.docChanged)
+
+            // 先映射现有的 decorations
+            set = set.map(tr.mapping, tr.doc)
+
+            const action = tr.getMeta(commentPluginKey)
+            console.log('Meta action:', action)
+
+            if (action?.type === 'addComment') {
+              const { from, to, id, color } = action
+              console.log(`添加评论: id=${id}, from=${from}, to=${to}`)
+
+              const spec = {
+                class: 'comment-highlight',
+                commentId: id,  // 注意：这里改用 commentId 而不是 data-comment-id
+                style: `background-color: ${color}; border-bottom: 2px solid ${color};`
+              }
+              console.log('Spec:', spec)
+
+              const decoration = Decoration.inline(from, to, spec)
+              console.log('创建的 decoration:', decoration)
+              console.log('decoration.spec:', decoration.spec)
+              console.log('decoration.spec.commentId:', decoration.spec.commentId)
+
+              set = set.add(tr.doc, [decoration])
+              console.log('添加后的 decorations 数量:', set.find().length)
+            }
+            else if (action?.type === 'removeComment') {
+              const { id } = action
+              console.log(`删除评论: id=${id}`)
+              console.log('删除前的 decorations 数量:', set.find().length)
+
+              // 打印所有 decorations
+              const all = set.find()
+              all.forEach((dec, i) => {
+                console.log(`Decoration ${i}:`, {
+                  from: dec.from,
+                  to: dec.to,
+                  spec: dec.spec,
+                  commentId: dec.spec.commentId
+                })
+              })
+
+              // 查找要删除的 decorations
+              const toRemove = set.find(undefined, undefined, spec => {
+                const matches = spec.commentId === id
+                console.log(`检查 spec.commentId=${spec.commentId} === ${id}:`, matches)
+                return matches
+              })
+
+              console.log('找到的要删除的 decorations:', toRemove)
+              console.log('数量:', toRemove.length)
+
+              if (toRemove.length > 0) {
+                console.log('执行删除...')
+                set = set.remove(toRemove)
+                console.log('删除后的 decorations 数量:', set.find().length)
+              } else {
+                console.warn('未找到匹配的 decoration!')
+              }
+            }
+
+            console.log('=== Plugin apply 结束 ===\n')
+            return set
+          }
+        },
+        props: {
+          decorations(state) {
+            return commentPluginKey.getState(state)
+          }
+        }
+      })
+    }
+
+    // 创建编辑器
+    const schema = new Schema({
+      nodes: basicSchema.spec.nodes,
+      marks: basicSchema.spec.marks
+    })
+
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', null, [schema.text('这是测试文本内容')])
+    ])
+
+    const state = EditorState.create({
+      doc,
+      plugins: [createCommentPlugin()]
+    })
+
+    const view = new EditorView(document.getElementById('editor'), {
+      state,
+      dispatchTransaction(tr) {
+        const newState = view.state.apply(tr)
+        view.updateState(newState)
+      }
+    })
+
+    // 暴露到全局
+    window.view = view
+    window.commentPluginKey = commentPluginKey
+
+    // 添加按钮事件
+    document.getElementById('add1').onclick = () => {
+      console.log('\n>>> 用户点击：添加评论1')
+      const tr = view.state.tr.setMeta(commentPluginKey, {
+        type: 'addComment',
+        from: 1,
+        to: 5,
+        id: 'comment-1',
+        color: '#fff3cd'
+      })
+      view.dispatch(tr)
+    }
+
+    document.getElementById('add2').onclick = () => {
+      console.log('\n>>> 用户点击：添加评论2')
+      const tr = view.state.tr.setMeta(commentPluginKey, {
+        type: 'addComment',
+        from: 1,
+        to: 5,
+        id: 'comment-2',
+        color: '#d1ecf1'
+      })
+      view.dispatch(tr)
+    }
+
+    document.getElementById('delete1').onclick = () => {
+      console.log('\n>>> 用户点击：删除评论1')
+      const tr = view.state.tr.setMeta(commentPluginKey, {
+        type: 'removeComment',
+        id: 'comment-1'
+      })
+      view.dispatch(tr)
+    }
+
+    document.getElementById('delete2').onclick = () => {
+      console.log('\n>>> 用户点击：删除评论2')
+      const tr = view.state.tr.setMeta(commentPluginKey, {
+        type: 'removeComment',
+        id: 'comment-2'
+      })
+      view.dispatch(tr)
+    }
+
+    document.getElementById('show').onclick = () => {
+      const decorationSet = commentPluginKey.getState(view.state)
+      const all = decorationSet.find()
+      console.log('\n=== 当前所有 Decorations ===')
+      console.log('总数:', all.length)
+      all.forEach((dec, i) => {
+        console.log(`Decoration ${i}:`, {
+          from: dec.from,
+          to: dec.to,
+          spec: dec.spec,
+          commentId: dec.spec.commentId
+        })
+      })
+    }
+
+    console.log('编辑器初始化完成')
+  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    #editor {
+      border: 2px solid #007bff;
+      border-radius: 4px;
+      padding: 15px;
+      min-height: 100px;
+      margin: 20px 0;
+      font-size: 16px;
+    }
+    .ProseMirror {
+      outline: none;
+    }
+    .comment-highlight {
+      padding: 2px 0;
+      cursor: pointer;
+    }
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      color: white;
+    }
+    .add { background: #28a745; }
+    .delete { background: #dc3545; }
+    .info { background: #17a2b8; }
+    .instructions {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>ProseMirror Decoration 删除测试</h1>
+
+  <div class="instructions">
+    <h3>测试步骤：</h3>
+    <ol>
+      <li>打开浏览器控制台（F12）</li>
+      <li>点击"添加评论1"，观察文本是否有黄色高亮</li>
+      <li>点击"添加评论2"，观察是否叠加蓝色高亮</li>
+      <li>点击"删除评论1"，观察黄色高亮是否消失</li>
+      <li>查看控制台日志，特别注意"找到的要删除的 decorations"</li>
+    </ol>
+  </div>
+
+  <div>
+    <button id="add1" class="add">添加评论1（黄色）</button>
+    <button id="add2" class="add">添加评论2（蓝色）</button>
+  </div>
+
+  <div>
+    <button id="delete1" class="delete">删除评论1</button>
+    <button id="delete2" class="delete">删除评论2</button>
+  </div>
+
+  <div>
+    <button id="show" class="info">显示所有 Decorations</button>
+  </div>
+
+  <div id="editor"></div>
+
+  <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 20px;">
+    <h3>说明：</h3>
+    <p>这是一个最小化的测试页面，用于验证 ProseMirror Decoration 的删除功能。</p>
+    <p><strong>注意：</strong>这个版本使用 <code>commentId</code> 而不是 <code>data-comment-id</code> 作为属性名。</p>
+  </div>
+</body>
+</html>
