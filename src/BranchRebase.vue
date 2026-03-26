@@ -1,6 +1,6 @@
 <template>
   <div class="container hashd">
-    asdljfalsdfasfas啊士大夫艰苦asdfajsfdklsfaskldfasfkasjf
+    asdljfalsdfasfas啊士大夫艰苦DEV
   </div>
 </template>
 <script setup>
