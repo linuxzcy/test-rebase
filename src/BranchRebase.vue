@@ -1,7 +1,5 @@
 <template>
-  <div class="container hashd">
-    asdljfalsdfasfas啊士大夫艰苦asdfajsfdklsfaskldfasfkasjf
-  </div>
+  <div class="container hashd">asdljfalsdfasfasMAIN</div>
 </template>
 <script setup>
 const mergeBranch = 'test'
